@@ -1,73 +1,63 @@
-# React + TypeScript + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+# TD Dice Roller
 
-Currently, two official plugins are available:
+## Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+TD Dice Roller is a web app for simulating dice rolls with realistic 3D physics. The goal is to provide a visually authentic experience for rolling a full 7-piece polyhedral dice set, starting with a d6 (six-sided die).
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Realistic Dice Physics:** Dice are not just spun or animated—they are physically simulated as if thrown onto a table.
+- **Supports Polyhedral Sets:** Begins with a d6, with plans to add d4, d8, d10, d12, d20, and percentile dice.
+- **Interactive Rolling:** Click to roll; each roll is unique due to randomized forces and torque.
+- **3D Graphics:** Built with React Three Fiber and Drei for rendering, and Rapier for physics.
 
-## Expanding the ESLint configuration
+## How It Works
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 1. Rigid Bodies
+Each die (starting with the d6) is wrapped in a dynamic `RigidBody` component from Rapier, allowing it to respond to forces and collisions.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 2. Colliders
+- The table (floor) uses a static `CuboidCollider`.
+- Each die has its own collider, so it can detect collisions with the table and other dice.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 3. The Throw (Impulse & Torque)
+When the user clicks to roll:
+- **applyImpulse:** Applies a linear force vector (forward and slightly upward) to simulate tossing the die onto the table.
+- **applyTorqueImpulse:** Applies a randomized 3D torque vector, making the die spin unpredictably.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### 4. Gravity & Restitution
+The physics engine takes over:
+- **Gravity** pulls the die down.
+- **Restitution** (bounciness) determines how much the die skips or bounces when it hits the floor.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Tech Stack
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- [React](https://react.dev/)
+- [React Three Fiber](https://docs.pmnd.rs/react-three-fiber/getting-started/introduction)
+- [Drei](https://docs.pmnd.rs/drei/introduction)
+- [Rapier Physics](https://rapier.rs/)
+- [@react-three/rapier](https://github.com/pmndrs/react-three-rapier)
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Getting Started
+
+1. Install dependencies:
+	```bash
+	npm install
+	```
+2. Start the development server:
+	```bash
+	npm run dev
+	```
+3. Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+## Roadmap
+
+- [ ] D6 dice with realistic throw
+- [ ] Add remaining polyhedral dice (d4, d8, d10, d12, d20, percentile)
+- [ ] UI for selecting dice types and quantities
+- [ ] Roll history and results display
+
+## License
+
+MIT
