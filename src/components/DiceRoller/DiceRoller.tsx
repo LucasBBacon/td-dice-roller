@@ -1,7 +1,6 @@
 import { Canvas } from "@react-three/fiber";
 import { Physics, RigidBody } from "@react-three/rapier";
 import { Die } from "../Die/Die";
-import { OrbitControls } from "@react-three/drei";
 import { useDiceStore } from "../../store/useDiceStore";
 
 export default function DiceRoller() {
@@ -39,8 +38,6 @@ export default function DiceRoller() {
 
           <Die />
         </Physics>
-
-        <OrbitControls />
       </Canvas>
     </div>
   );
