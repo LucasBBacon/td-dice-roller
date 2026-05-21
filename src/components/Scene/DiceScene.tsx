@@ -3,6 +3,7 @@ import { Canvas } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
 import { Boundaries } from "./Boundaries";
 import { D6 } from "../Dice/D6";
+import { D20 } from "../Dice/D20";
 
 export const DiceScene = () => {
   return (
@@ -18,7 +19,7 @@ export const DiceScene = () => {
 
       <Physics gravity={[0, -30, 0]}>
         <Boundaries />
-        <D6 />
+        <D20 />
       </Physics>
     </Canvas>
   );

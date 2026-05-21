@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import './App.css'
 import { DiceScene } from './components/Scene/DiceScene'
 import { Overlay } from './components/UI/Overlay'
