@@ -1,0 +1,41 @@
+.ui-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 2rem;
+    box-sizing: border-box;
+    z-index: 10;
+}
+
+.controls {
+    pointer-events: auto;
+    display: flex;
+    gap: 1rem;
+}
+
+button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    cursor: pointer;
+    background: #2a2a2a;
+    color: white;
+    border: 2px solid #444;
+    border-radius: 8px;
+}
+
+.history {
+    pointer-events: auto;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 1rem;
+    border-radius: 8px;
+    max-width: 200px;
+    max-height: 50vh;
+    overflow-y: auto;
+}

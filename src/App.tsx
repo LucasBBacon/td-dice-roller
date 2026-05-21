@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import './App.css'
-import DiceRoller from './components/DiceRoller/DiceRoller'
+import { DiceScene } from './components/Scene/DiceScene'
+import { Overlay } from './components/UI/Overlay'
 
 function App() {
 
   return (
-    <>
-      <DiceRoller />
-    </>
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
+      <DiceScene />
+      <Overlay />
+    </ div>
   )
 }
 
