@@ -2,11 +2,17 @@ import { RapierRigidBody, RigidBody } from "@react-three/rapier";
 import { useEffect, useMemo, useRef } from "react";
 import { useDiceStore } from "../../store/useDiceStore";
 import { useGLTF } from "@react-three/drei";
+import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import {
+  THROW_ANGLE_MAX_DEG,
+  THROW_ANGLE_MIN_DEG,
+} from "../../config/dicePhysics";
 
 export const D20 = () => {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
   const { triggerRoll, skipAnimation, addRollResult } = useDiceStore();
+  const { viewport } = useThree();
 
   // load model and its embedded materials
   // nodes contain the geometry, materials contain the blender materials
@@ -22,26 +28,84 @@ export const D20 = () => {
 
     const rb = rigidBodyRef.current;
 
-    // reset position
-    rb.setTranslation({ x: 3, y: 5, z: 4 }, true);
-    rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
-    rb.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    if (skipAnimation) {
+      const randomLocator =
+        locators[Math.floor(Math.random() * locators.length)];
 
-    // apply random impulses to simulate rolling
-    const throwImpulse = {
-      x: (Math.random() - 0.5) * -100,
-      y: Math.random() * 5,
-      z: (Math.random() - 0.5) * -100,
-    };
-    const torqueImpulse = {
-      x: (Math.random() - 0.5) * 5,
-      y: (Math.random() - 0.5) * 5,
-      z: (Math.random() - 0.5) * 5,
-    };
+      const localDirection = randomLocator.position.clone().normalize();
+      const globalUp = new THREE.Vector3(0, 1, 0);
 
-    rb.applyImpulse(throwImpulse, true);
-    rb.applyTorqueImpulse(torqueImpulse, true);
-  }, [triggerRoll, skipAnimation]);
+      const snapRotation = new THREE.Quaternion().setFromUnitVectors(
+        localDirection,
+        globalUp,
+      );
+
+      const randomYaw = new THREE.Quaternion().setFromAxisAngle(
+        globalUp,
+        Math.random() * Math.PI * 2,
+      );
+      snapRotation.premultiply(randomYaw);
+
+      const padding = 1.5;
+      rb.setTranslation(
+        {
+          x: (Math.random() - 0.5) * (viewport.width - padding * 2),
+          y: 0,
+          z: (Math.random() - 0.5) * (viewport.height - padding * 2),
+        },
+        true,
+      );
+      rb.setRotation(snapRotation, true);
+      rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      rb.setAngvel({ x: 0, y: 0, z: 0 }, true);
+
+      const rolledValue = parseInt(randomLocator.name.split("_")[1], 10);
+      setTimeout(() => addRollResult(rolledValue), 50);
+    } else {
+      const spawnMargin = 1.5;
+      const throwStartX = viewport.width / 2 - spawnMargin;
+      const throwStartZ = viewport.height / 2 - spawnMargin;
+
+      // reset position
+      rb.setTranslation({ x: throwStartX, y: 5, z: throwStartZ }, true);
+      rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      rb.setAngvel({ x: 0, y: 0, z: 0 }, true);
+
+      const throwImpulseMultiplier = 70;
+      const torqueImpulseMultiplier = 20;
+      const throwAngleDeg = THREE.MathUtils.randFloat(
+        THROW_ANGLE_MIN_DEG,
+        THROW_ANGLE_MAX_DEG,
+      );
+      const throwAngleRad = THREE.MathUtils.degToRad(throwAngleDeg);
+      const throwStrength = THREE.MathUtils.randFloat(
+        throwImpulseMultiplier * 0.7,
+        throwImpulseMultiplier,
+      );
+
+      // Use a bounded horizontal angle so throw direction is tunable.
+      const throwImpulse = {
+        x: Math.cos(throwAngleRad) * throwStrength,
+        y: Math.random() * 3,
+        z: Math.sin(throwAngleRad) * throwStrength,
+      };
+      const torqueImpulse = {
+        x: (Math.random() - 0.5) * torqueImpulseMultiplier,
+        y: (Math.random() - 0.5) * torqueImpulseMultiplier,
+        z: (Math.random() - 0.5) * torqueImpulseMultiplier,
+      };
+
+      rb.applyImpulse(throwImpulse, true);
+      rb.applyTorqueImpulse(torqueImpulse, true);
+    }
+  }, [
+    triggerRoll,
+    skipAnimation,
+    locators,
+    addRollResult,
+    viewport.width,
+    viewport.height,
+  ]);
 
   const handleSleep = () => {
     if (!rigidBodyRef.current || skipAnimation) return;
@@ -78,8 +142,10 @@ export const D20 = () => {
     <RigidBody
       ref={rigidBodyRef}
       colliders="hull"
-      restitution={0.6}
-      friction={0.5}
+      restitution={0.3}
+      friction={0.9}
+      linearDamping={1.5}
+      angularDamping={2.8}
       onSleep={handleSleep}
       ccd={true}
     >
