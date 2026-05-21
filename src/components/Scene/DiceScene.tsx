@@ -2,10 +2,11 @@ import { OrthographicCamera } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
 import { Boundaries } from "./Boundaries";
-import { D20 } from "../Dice/D20";
-import { D6 } from "../Dice/D6";
+import { Die } from "../Dice/Die";
+import { useDiceStore } from "../../store/useDiceStore";
 
 export const DiceScene = () => {
+  const selectedDieType = useDiceStore((state) => state.selectedDieType);
   const showPhysicsDebug =
     import.meta.env.DEV && import.meta.env.VITE_RAPIER_DEBUG === "true";
 
@@ -22,7 +23,7 @@ export const DiceScene = () => {
 
       <Physics gravity={[0, -30, 0]} debug={showPhysicsDebug}>
         <Boundaries />
-        <D6 />
+        <Die dieType={selectedDieType} />
       </Physics>
     </Canvas>
   );
