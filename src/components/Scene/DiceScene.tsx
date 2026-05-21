@@ -1,8 +1,7 @@
-import { OrthographicCamera } from "@react-three/drei";
+import { OrbitControls, OrthographicCamera } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
 import { Boundaries } from "./Boundaries";
-import { D6 } from "../Dice/D6";
 import { D20 } from "../Dice/D20";
 
 export const DiceScene = () => {
@@ -17,10 +16,12 @@ export const DiceScene = () => {
       <ambientLight intensity={0.5} />
       <directionalLight position={[5, 10, 5]} intensity={1} castShadow />
 
-      <Physics gravity={[0, -30, 0]}>
+      <Physics gravity={[0, -30, 0]} debug>
         <Boundaries />
         <D20 />
       </Physics>
+
+      <OrbitControls />
     </Canvas>
   );
 };

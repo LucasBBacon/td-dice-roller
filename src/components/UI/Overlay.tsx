@@ -8,7 +8,7 @@ export const Overlay = () => {
   return (
     <div className="ui-container">
       <div className="controls">
-        <button onClick={rollDice} disabled={isRolling}>
+        <button onClick={rollDice}>
           {isRolling ? "Rolling..." : "Roll D6"}
         </button>
         <label
