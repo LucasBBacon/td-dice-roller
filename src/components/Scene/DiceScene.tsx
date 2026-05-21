@@ -1,10 +1,15 @@
-import { OrbitControls, OrthographicCamera } from "@react-three/drei";
+import { OrthographicCamera } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
 import { Boundaries } from "./Boundaries";
-import { D20 } from "../Dice/D20";
+import { Die } from "../Dice/Die";
+import { useDiceStore } from "../../store/useDiceStore";
 
 export const DiceScene = () => {
+  const selectedDieType = useDiceStore((state) => state.selectedDieType);
+  const showPhysicsDebug =
+    import.meta.env.DEV && import.meta.env.VITE_RAPIER_DEBUG === "true";
+
   return (
     <Canvas style={{ position: "absolute", top: 0, left: 0, zIndex: 1 }}>
       <OrthographicCamera
@@ -16,12 +21,10 @@ export const DiceScene = () => {
       <ambientLight intensity={0.5} />
       <directionalLight position={[5, 10, 5]} intensity={1} castShadow />
 
-      <Physics gravity={[0, -30, 0]} debug>
+      <Physics gravity={[0, -30, 0]} debug={showPhysicsDebug}>
         <Boundaries />
-        <D20 />
+        <Die dieType={selectedDieType} />
       </Physics>
-
-      <OrbitControls />
     </Canvas>
   );
 };
