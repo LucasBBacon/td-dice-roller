@@ -1,12 +1,8 @@
 import { useGLTF } from "@react-three/drei";
-import { useThree } from "@react-three/fiber";
 import { RapierRigidBody, RigidBody } from "@react-three/rapier";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import {
-  THROW_ANGLE_MAX_DEG,
-  THROW_ANGLE_MIN_DEG,
-} from "../../config/dicePhysics";
+import { type SpawnPoint } from "./spawnPlanning";
 import { useDiceStore } from "../../store/useDiceStore";
 import type { DieType } from "../../store/useDiceStore";
 
@@ -54,19 +50,33 @@ const DIE_PHYSICS_OVERRIDES: Record<DieType, Partial<DiePhysicsConfig>> = {
 
 const DIE_TYPES: DieType[] = ["d4", "d6", "d8", "d10", "d12", "d20"];
 
-const getModelPath = (dieType: DieType) => `/models/${dieType.toUpperCase()}.glb`;
+const getModelPath = (dieType: DieType) =>
+  `/models/${dieType.toUpperCase()}.glb`;
 
 type DieProps = {
   dieType: DieType;
+  rollId: number;
+  throwStartPosition?: SpawnPoint;
+  skipSnapPosition?: SpawnPoint;
 };
 
-export const Die = ({ dieType }: DieProps) => {
+const DEFAULT_POSITION: SpawnPoint = { x: 0, z: 0 };
+
+export const Die = ({
+  dieType,
+  rollId,
+  throwStartPosition,
+  skipSnapPosition,
+}: DieProps) => {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
+  const launchedForRollRef = useRef<number | null>(null);
   const triggerRoll = useDiceStore((state) => state.triggerRoll);
+  const isRolling = useDiceStore((state) => state.isRolling);
   const skipAnimation = useDiceStore((state) => state.skipAnimation);
   const addRollResult = useDiceStore((state) => state.addRollResult);
-  const setGlbContractIssue = useDiceStore((state) => state.setGlbContractIssue);
-  const { viewport } = useThree();
+  const setGlbContractIssue = useDiceStore(
+    (state) => state.setGlbContractIssue,
+  );
 
   const modelPath = getModelPath(dieType);
   const { nodes, materials } = useGLTF(modelPath);
@@ -78,6 +88,7 @@ export const Die = ({ dieType }: DieProps) => {
 
   const dieMesh = (nodes.DieMesh as THREE.Mesh | undefined) ?? null;
   const dieMaterial = materials.DieMat ?? null;
+  const initialThrowStart = throwStartPosition ?? DEFAULT_POSITION;
 
   const locators = useMemo(() => {
     return Object.values(nodes).filter(
@@ -113,98 +124,156 @@ export const Die = ({ dieType }: DieProps) => {
     if (import.meta.env.DEV) {
       console.warn(issue);
     }
-  }, [dieMaterial, dieMesh, dieType, locators.length, modelPath, setGlbContractIssue]);
+  }, [
+    dieMaterial,
+    dieMesh,
+    dieType,
+    locators.length,
+    modelPath,
+    setGlbContractIssue,
+  ]);
 
   useEffect(() => {
-    if (triggerRoll <= 0 || !rigidBodyRef.current || locators.length === 0) return;
+    if (
+      triggerRoll <= 0 ||
+      !isRolling ||
+      rollId !== triggerRoll ||
+      locators.length === 0
+    ) {
+      return;
+    }
+    let cancelled = false;
 
-    const rb = rigidBodyRef.current;
+    const launchTimer = setTimeout(() => {
+      if (cancelled) return;
 
-    if (skipAnimation) {
-      const randomLocator = locators[Math.floor(Math.random() * locators.length)];
-      const localDirection = randomLocator.position.clone().normalize();
-      const globalUp = new THREE.Vector3(0, 1, 0);
+      const rb = rigidBodyRef.current;
+      if (!rb) return;
 
-      const snapRotation = new THREE.Quaternion().setFromUnitVectors(
-        localDirection,
-        globalUp,
+      const throwStart = initialThrowStart;
+      const skipSnap = skipSnapPosition ?? throwStart;
+
+      launchedForRollRef.current = rollId;
+
+      if (skipAnimation) {
+        const randomLocator =
+          locators[Math.floor(Math.random() * locators.length)];
+        const localDirection = randomLocator.position.clone().normalize();
+        const globalUp = new THREE.Vector3(0, 1, 0);
+
+        const snapRotation = new THREE.Quaternion().setFromUnitVectors(
+          localDirection,
+          globalUp,
+        );
+
+        const randomYaw = new THREE.Quaternion().setFromAxisAngle(
+          globalUp,
+          Math.random() * Math.PI * 2,
+        );
+        snapRotation.premultiply(randomYaw);
+
+        rb.setTranslation(
+          {
+            x: skipSnap.x,
+            y: physics.skipSnapY,
+            z: skipSnap.z,
+          },
+          true,
+        );
+        rb.setRotation(snapRotation, true);
+        rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        rb.setAngvel({ x: 0, y: 0, z: 0 }, true);
+
+        const rolledValue = parseInt(randomLocator.name.split("_")[1], 10);
+        setTimeout(
+          () => addRollResult(rollId, { dieType, value: rolledValue }),
+          physics.skipResultDelayMs,
+        );
+        return;
+      }
+
+      rb.wakeUp();
+
+      const throwImpulseMultiplier = 120;
+      const torqueImpulseMultiplier = 42;
+      const minLaunchSpeed = 18;
+      const maxLaunchSpeed = 26;
+      const minLaunchVerticalSpeed = 6;
+      const maxLaunchVerticalSpeed = 10;
+      const inwardDirection = new THREE.Vector2(-throwStart.x, -throwStart.z);
+      const baseAngle =
+        inwardDirection.lengthSq() > 0.0001
+          ? Math.atan2(inwardDirection.y, inwardDirection.x)
+          : THREE.MathUtils.randFloat(0, Math.PI * 2);
+      const throwAngleRad =
+        baseAngle +
+        THREE.MathUtils.randFloatSpread(THREE.MathUtils.degToRad(70));
+      const throwStrength = THREE.MathUtils.randFloat(
+        throwImpulseMultiplier * 0.7,
+        throwImpulseMultiplier,
       );
 
-      const randomYaw = new THREE.Quaternion().setFromAxisAngle(
-        globalUp,
-        Math.random() * Math.PI * 2,
+      const launchDirection = {
+        x: Math.cos(throwAngleRad),
+        z: Math.sin(throwAngleRad),
+      };
+      const launchSpeed = THREE.MathUtils.randFloat(
+        minLaunchSpeed,
+        maxLaunchSpeed,
       );
-      snapRotation.premultiply(randomYaw);
+      const verticalLaunchSpeed = THREE.MathUtils.randFloat(
+        minLaunchVerticalSpeed,
+        maxLaunchVerticalSpeed,
+      );
 
-      rb.setTranslation(
+      rb.setLinvel(
         {
-          x: (Math.random() - 0.5) * (viewport.width - physics.skipSnapPadding * 2),
-          y: physics.skipSnapY,
-          z: (Math.random() - 0.5) * (viewport.height - physics.skipSnapPadding * 2),
+          x: launchDirection.x * launchSpeed,
+          y: verticalLaunchSpeed,
+          z: launchDirection.z * launchSpeed,
         },
         true,
       );
-      rb.setRotation(snapRotation, true);
-      rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
-      rb.setAngvel({ x: 0, y: 0, z: 0 }, true);
 
-      const rolledValue = parseInt(randomLocator.name.split("_")[1], 10);
-      setTimeout(
-        () => addRollResult({ dieType, value: rolledValue }),
-        physics.skipResultDelayMs,
-      );
-      return;
-    }
+      const throwImpulse = {
+        x: launchDirection.x * throwStrength,
+        y: Math.random() * physics.throwVerticalMax,
+        z: launchDirection.z * throwStrength,
+      };
+      const torqueImpulse = {
+        x: (Math.random() - 0.5) * torqueImpulseMultiplier,
+        y: (Math.random() - 0.5) * torqueImpulseMultiplier,
+        z: (Math.random() - 0.5) * torqueImpulseMultiplier,
+      };
 
-    const spawnMargin = 1.5;
-    const throwStartX = viewport.width / 2 - spawnMargin;
-    const throwStartZ = viewport.height / 2 - spawnMargin;
+      rb.applyImpulse(throwImpulse, true);
+      rb.applyTorqueImpulse(torqueImpulse, true);
+    }, 50);
 
-    rb.setTranslation({ x: throwStartX, y: 5, z: throwStartZ }, true);
-    rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
-    rb.setAngvel({ x: 0, y: 0, z: 0 }, true);
-
-    const throwImpulseMultiplier = 70;
-    const torqueImpulseMultiplier = 20;
-    const throwAngleDeg = THREE.MathUtils.randFloat(
-      THROW_ANGLE_MIN_DEG,
-      THROW_ANGLE_MAX_DEG,
-    );
-    const throwAngleRad = THREE.MathUtils.degToRad(throwAngleDeg);
-    const throwStrength = THREE.MathUtils.randFloat(
-      throwImpulseMultiplier * 0.7,
-      throwImpulseMultiplier,
-    );
-
-    const throwImpulse = {
-      x: Math.cos(throwAngleRad) * throwStrength,
-      y: Math.random() * physics.throwVerticalMax,
-      z: Math.sin(throwAngleRad) * throwStrength,
+    return () => {
+      cancelled = true;
+      clearTimeout(launchTimer);
     };
-    const torqueImpulse = {
-      x: (Math.random() - 0.5) * torqueImpulseMultiplier,
-      y: (Math.random() - 0.5) * torqueImpulseMultiplier,
-      z: (Math.random() - 0.5) * torqueImpulseMultiplier,
-    };
-
-    rb.applyImpulse(throwImpulse, true);
-    rb.applyTorqueImpulse(torqueImpulse, true);
   }, [
     addRollResult,
     dieType,
+    isRolling,
     locators,
+    rollId,
     physics.skipResultDelayMs,
-    physics.skipSnapPadding,
     physics.skipSnapY,
     physics.throwVerticalMax,
     skipAnimation,
+    skipSnapPosition,
+    initialThrowStart,
     triggerRoll,
-    viewport.height,
-    viewport.width,
   ]);
 
   const handleSleep = () => {
     if (!rigidBodyRef.current || skipAnimation || locators.length === 0) return;
+    if (launchedForRollRef.current !== rollId) return;
+
+    launchedForRollRef.current = null;
 
     const rotation = rigidBodyRef.current.rotation();
     const quaternion = new THREE.Quaternion(
@@ -227,7 +296,7 @@ export const Die = ({ dieType }: DieProps) => {
       }
     });
 
-    addRollResult({ dieType, value: rolledValue });
+    addRollResult(rollId, { dieType, value: rolledValue });
   };
 
   if (!dieMesh || !dieMaterial) {
@@ -237,6 +306,7 @@ export const Die = ({ dieType }: DieProps) => {
   return (
     <RigidBody
       ref={rigidBodyRef}
+      position={[initialThrowStart.x, 5, initialThrowStart.z]}
       colliders={physics.collider}
       restitution={physics.restitution}
       friction={physics.friction}
@@ -245,7 +315,12 @@ export const Die = ({ dieType }: DieProps) => {
       onSleep={handleSleep}
       ccd={true}
     >
-      <mesh castShadow receiveShadow geometry={dieMesh.geometry} material={dieMaterial} />
+      <mesh
+        castShadow
+        receiveShadow
+        geometry={dieMesh.geometry}
+        material={dieMaterial}
+      />
     </RigidBody>
   );
 };

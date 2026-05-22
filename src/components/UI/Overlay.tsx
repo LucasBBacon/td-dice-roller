@@ -1,51 +1,57 @@
 import "./Overlay.css";
-import { useDiceStore } from "../../store/useDiceStore";
+import {
+  DIE_TYPES,
+  MAX_DICE_PER_TYPE,
+  useDiceStore,
+} from "../../store/useDiceStore";
 
-const DIE_OPTIONS = ["d4", "d6", "d8", "d10", "d12", "d20"] as const;
+const totalSelectedDice = (counts: Record<(typeof DIE_TYPES)[number], number>) =>
+  DIE_TYPES.reduce((total, dieType) => total + counts[dieType], 0);
+
+const selectionLabel = (counts: Record<(typeof DIE_TYPES)[number], number>) => {
+  const parts = DIE_TYPES.filter((dieType) => counts[dieType] > 0).map(
+    (dieType) => `${counts[dieType]}${dieType}`,
+  );
+  return parts.length > 0 ? parts.join(" + ") : "0d";
+};
 
 export const Overlay = () => {
   const {
     rollDice,
     rollHistory,
-    selectedDieType,
-    setSelectedDieType,
+    selectedDiceCounts,
+    setDieCount,
     glbContractIssue,
     skipAnimation,
     setSkipAnimation,
     isRolling,
   } = useDiceStore();
 
-  const selectedLabel = selectedDieType.toUpperCase();
+  const diceCount = totalSelectedDice(selectedDiceCounts);
+  const label = selectionLabel(selectedDiceCounts);
 
   return (
     <div className="ui-container">
       <div className="controls">
-        <button onClick={rollDice}>
-          {isRolling ? "Rolling..." : `Roll ${selectedLabel}`}
+        <button onClick={rollDice} disabled={isRolling || diceCount === 0}>
+          {isRolling ? "Rolling..." : `Roll ${label}`}
         </button>
-        <label
-          style={{
-            color: "white",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            pointerEvents: "auto",
-          }}
-        >
-          Die
-          <select
-            value={selectedDieType}
-            onChange={(e) =>
-              setSelectedDieType(e.target.value as (typeof DIE_OPTIONS)[number])
-            }
-          >
-            {DIE_OPTIONS.map((dieType) => (
-              <option key={dieType} value={dieType}>
-                {dieType.toUpperCase()}
-              </option>
-            ))}
-          </select>
-        </label>
+
+        <div className="dice-count-grid">
+          {DIE_TYPES.map((dieType) => (
+            <label key={dieType} className="dice-count-label">
+              <span>{dieType.toUpperCase()}</span>
+              <input
+                type="number"
+                min={0}
+                max={MAX_DICE_PER_TYPE}
+                value={selectedDiceCounts[dieType]}
+                onChange={(event) => setDieCount(dieType, Number(event.target.value))}
+              />
+            </label>
+          ))}
+        </div>
+
         <label
           style={{
             color: "white",
@@ -66,9 +72,9 @@ export const Overlay = () => {
       <div className="history">
         <h3>Roll History</h3>
         <ul>
-          {rollHistory.map((result, i) => (
-            <li key={i}>
-              {result.dieType.toUpperCase()}: {result.value}
+          {rollHistory.map((result) => (
+            <li key={result.rollId}>
+              {result.notation} = {result.total}
             </li>
           ))}
         </ul>

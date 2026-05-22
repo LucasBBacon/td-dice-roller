@@ -1,12 +1,37 @@
-import { OrthographicCamera } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
+import { OrbitControls, OrthographicCamera } from "@react-three/drei";
+import { Canvas, useThree } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
+import { useMemo } from "react";
+import { buildSpawnPlan } from "../Dice/spawnPlanning";
 import { Boundaries } from "./Boundaries";
 import { Die } from "../Dice/Die";
 import { useDiceStore } from "../../store/useDiceStore";
 
+const DiceRollLayer = () => {
+  const activeDice = useDiceStore((state) => state.activeDice);
+  const { viewport } = useThree();
+
+  const spawnPlan = useMemo(
+    () => buildSpawnPlan(activeDice.length, viewport.width, viewport.height),
+    [activeDice, viewport.height, viewport.width],
+  );
+
+  return (
+    <>
+      {activeDice.map((die, index) => (
+        <Die
+          key={die.id}
+          dieType={die.dieType}
+          rollId={die.rollId}
+          throwStartPosition={spawnPlan.throwPositions[index]}
+          skipSnapPosition={spawnPlan.skipPositions[index]}
+        />
+      ))}
+    </>
+  );
+};
+
 export const DiceScene = () => {
-  const selectedDieType = useDiceStore((state) => state.selectedDieType);
   const showPhysicsDebug =
     import.meta.env.DEV && import.meta.env.VITE_RAPIER_DEBUG === "true";
 
@@ -23,8 +48,10 @@ export const DiceScene = () => {
 
       <Physics gravity={[0, -30, 0]} debug={showPhysicsDebug}>
         <Boundaries />
-        <Die dieType={selectedDieType} />
+        <DiceRollLayer />
       </Physics>
+
+      <OrbitControls />
     </Canvas>
   );
 };
