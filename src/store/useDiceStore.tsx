@@ -72,6 +72,8 @@ export type RollBatchHistory = {
   total: number;
   results: RollResult[];
 };
+
+export type RollPhase = "idle" | "spawning" | "rolling";
 // #endregion
 
 // #region Store Contract
@@ -79,17 +81,27 @@ interface DiceState {
   rollHistory: RollBatchHistory[];
   selectedDiceCounts: DiceCountMap;
   activeDice: RollDieInstance[];
+  previousSceneDiceSnapshot: RollDieInstance[];
   glbContractIssue: string | null;
   isRolling: boolean;
+  rollPhase: RollPhase;
   triggerRoll: number;
+  triggerLaunch: number;
   skipAnimation: boolean;
   activeRollId: number;
   expectedDiceCount: number;
+  readyDiceCount: number;
+  readyRetryCount: number;
+  readyDieIds: string[];
   resolvedDiceCount: number;
   currentRollResults: RollResult[];
   addRollResult: (rollId: number, result: RollResult) => void;
   rollDice: () => void;
   setDieCount: (dieType: DieType, count: number) => void;
+  registerDieReady: (rollId: number, dieId: string) => void;
+  retrySpawnReadiness: (rollId: number) => void;
+  beginRollLaunch: (rollId: number) => void;
+  abortRoll: (rollId: number) => void;
   setGlbContractIssue: (issue: string | null) => void;
   setSkipAnimation: (skip: boolean) => void;
 }
@@ -106,13 +118,19 @@ export const useDiceStore = create<DiceState>((set) => ({
     d12: 0,
     d20: 0,
   },
-  activeDice: [{ id: "0-d6-0", dieType: "d6", index: 0, rollId: 0 }],
+  activeDice: [],
+  previousSceneDiceSnapshot: [],
   glbContractIssue: null,
   isRolling: false,
+  rollPhase: "idle",
   triggerRoll: 0,
+  triggerLaunch: 0,
   skipAnimation: false,
   activeRollId: 0,
   expectedDiceCount: 0,
+  readyDiceCount: 0,
+  readyRetryCount: 0,
+  readyDieIds: [],
   resolvedDiceCount: 0,
   currentRollResults: [],
   addRollResult: (rollId, result) => {
@@ -159,6 +177,11 @@ export const useDiceStore = create<DiceState>((set) => ({
         currentRollResults: [],
         resolvedDiceCount: 0,
         expectedDiceCount: 0,
+        readyDiceCount: 0,
+        readyRetryCount: 0,
+        readyDieIds: [],
+        previousSceneDiceSnapshot: [],
+        rollPhase: "idle",
         isRolling: false,
       };
     });
@@ -171,15 +194,22 @@ export const useDiceStore = create<DiceState>((set) => ({
             const normalizedCounts = normalizeDiceCounts(state.selectedDiceCounts);
             const nextTriggerRoll = state.triggerRoll + 1;
             const nextRollId = nextTriggerRoll;
+            const nextActiveDice = buildDiceInstances(normalizedCounts, nextRollId);
 
             return {
               selectedDiceCounts: normalizedCounts,
               triggerRoll: nextTriggerRoll,
+              triggerLaunch: state.triggerLaunch,
               activeRollId: nextRollId,
-              activeDice: buildDiceInstances(normalizedCounts, nextRollId),
+              activeDice: nextActiveDice,
+              previousSceneDiceSnapshot: state.activeDice,
               expectedDiceCount: totalDiceCount(normalizedCounts),
+              readyDiceCount: 0,
+              readyRetryCount: 0,
+              readyDieIds: [],
               resolvedDiceCount: 0,
               currentRollResults: [],
+              rollPhase: "spawning",
               isRolling: true,
             };
           })()),
@@ -194,11 +224,77 @@ export const useDiceStore = create<DiceState>((set) => ({
 
       return {
         selectedDiceCounts: nextCounts,
-        ...(state.isRolling
-          ? {}
-          : {
-              activeDice: buildDiceInstances(nextCounts, state.activeRollId),
-            }),
+      };
+    });
+  },
+  registerDieReady: (rollId, dieId) => {
+    set((state) => {
+      if (
+        !state.isRolling ||
+        state.rollPhase !== "spawning" ||
+        state.activeRollId !== rollId ||
+        state.readyDieIds.includes(dieId)
+      ) {
+        return {};
+      }
+
+      const nextReadyDieIds = [...state.readyDieIds, dieId];
+
+      return {
+        readyDieIds: nextReadyDieIds,
+        readyDiceCount: nextReadyDieIds.length,
+      };
+    });
+  },
+  retrySpawnReadiness: (rollId) => {
+    set((state) => {
+      if (
+        !state.isRolling ||
+        state.rollPhase !== "spawning" ||
+        state.activeRollId !== rollId
+      ) {
+        return {};
+      }
+
+      return {
+        readyRetryCount: state.readyRetryCount + 1,
+      };
+    });
+  },
+  beginRollLaunch: (rollId) => {
+    set((state) => {
+      if (
+        !state.isRolling ||
+        state.rollPhase !== "spawning" ||
+        state.activeRollId !== rollId ||
+        state.readyDiceCount < state.expectedDiceCount
+      ) {
+        return {};
+      }
+
+      return {
+        rollPhase: "rolling",
+        triggerLaunch: state.triggerLaunch + 1,
+      };
+    });
+  },
+  abortRoll: (rollId) => {
+    set((state) => {
+      if (!state.isRolling || state.activeRollId !== rollId) {
+        return {};
+      }
+
+      return {
+        isRolling: false,
+        rollPhase: "idle",
+        activeDice: state.previousSceneDiceSnapshot,
+        previousSceneDiceSnapshot: [],
+        expectedDiceCount: 0,
+        resolvedDiceCount: 0,
+        currentRollResults: [],
+        readyDiceCount: 0,
+        readyRetryCount: 0,
+        readyDieIds: [],
       };
     });
   },

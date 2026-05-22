@@ -16,7 +16,9 @@ const getModelPath = (dieType: DieType) =>
   `/models/${dieType.toUpperCase()}.glb`;
 
 type DieProps = {
+  dieId: string;
   dieType: DieType;
+  dieIndex: number;
   rollId: number;
   throwStartPosition?: SpawnPoint;
   skipSnapPosition?: SpawnPoint;
@@ -27,7 +29,9 @@ const DEFAULT_POSITION: SpawnPoint = { x: 0, z: 0 };
 
 // #region Component
 export const Die = ({
+  dieId,
   dieType,
+  dieIndex,
   rollId,
   throwStartPosition,
   skipSnapPosition,
@@ -35,10 +39,13 @@ export const Die = ({
   // References track the active rigid body and whether this die already launched for a roll id.
   const rigidBodyRef = useRef<RapierRigidBody>(null);
   const launchedForRollRef = useRef<number | null>(null);
-  const triggerRoll = useDiceStore((state) => state.triggerRoll);
+  const activeRollId = useDiceStore((state) => state.activeRollId);
   const isRolling = useDiceStore((state) => state.isRolling);
+  const rollPhase = useDiceStore((state) => state.rollPhase);
+  const triggerLaunch = useDiceStore((state) => state.triggerLaunch);
   const skipAnimation = useDiceStore((state) => state.skipAnimation);
   const addRollResult = useDiceStore((state) => state.addRollResult);
+  const registerDieReady = useDiceStore((state) => state.registerDieReady);
   const setGlbContractIssue = useDiceStore(
     (state) => state.setGlbContractIssue,
   );
@@ -97,17 +104,35 @@ export const Die = ({
     setGlbContractIssue,
   ]);
 
+  // Each die reports readiness after mount so launch waits for all rigid bodies.
+  useEffect(() => {
+    if (!rigidBodyRef.current) {
+      return;
+    }
+
+    registerDieReady(rollId, dieId);
+  }, [dieId, registerDieReady, rollId]);
+
   // Trigger throw/snap behavior when the global roll id advances to this die's roll.
   useEffect(() => {
     if (
-      triggerRoll <= 0 ||
+      triggerLaunch <= 0 ||
       !isRolling ||
-      rollId !== triggerRoll ||
+      rollPhase !== "rolling" ||
+      rollId !== activeRollId ||
       locators.length === 0
     ) {
       return;
     }
     let cancelled = false;
+
+    const seed = (((rollId + 1) * 73856093) ^ ((dieIndex + 1) * 19349663)) >>> 0;
+    const randomT = (seed % 1000) / 1000;
+    const staggerMs =
+      DIE_LAUNCH_CONFIG.perDieLaunchStaggerMinMs +
+      randomT *
+        (DIE_LAUNCH_CONFIG.perDieLaunchStaggerMaxMs -
+          DIE_LAUNCH_CONFIG.perDieLaunchStaggerMinMs);
 
     const launchTimer = setTimeout(() => {
       if (cancelled) return;
@@ -210,7 +235,7 @@ export const Die = ({
 
       rb.applyImpulse(throwImpulse, true);
       rb.applyTorqueImpulse(torqueImpulse, true);
-    }, DIE_LAUNCH_CONFIG.launchDelayMs);
+    }, DIE_LAUNCH_CONFIG.launchDelayMs + staggerMs);
 
     return () => {
       cancelled = true;
@@ -218,17 +243,20 @@ export const Die = ({
     };
   }, [
     addRollResult,
+    activeRollId,
+    dieIndex,
     dieType,
     isRolling,
     locators,
     rollId,
+    rollPhase,
     physics.skipResultDelayMs,
     physics.skipSnapY,
     physics.throwVerticalMax,
     skipAnimation,
     skipSnapPosition,
     initialThrowStart,
-    triggerRoll,
+    triggerLaunch,
   ]);
 
   // On physics sleep, pick the locator with highest world-space Y to determine the up-facing value.

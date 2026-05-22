@@ -50,6 +50,10 @@ export const DIE_PHYSICS_OVERRIDES: Record<DieType, Partial<DiePhysicsConfig>> =
 
 // #region Launch Tuning
 export const DIE_LAUNCH_CONFIG = {
+	batchReadyTimeoutMs: 250,
+	batchReadySettleDelayMs: 70,
+	perDieLaunchStaggerMinMs: 5,
+	perDieLaunchStaggerMaxMs: 20,
 	launchDelayMs: 50,
 	throwImpulseMultiplier: 120,
 	torqueImpulseMultiplier: 42,
