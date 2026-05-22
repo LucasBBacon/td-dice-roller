@@ -1,5 +1,8 @@
+// #region Imports
 import type { DieType } from "../store/useDiceStore";
+// #endregion
 
+// #region Physics Contracts
 export type DiePhysicsConfig = {
 	collider: "cuboid" | "hull";
 	restitution: number;
@@ -11,7 +14,9 @@ export type DiePhysicsConfig = {
 	skipResultDelayMs: number;
 	throwVerticalMax: number;
 };
+// #endregion
 
+// #region Defaults And Overrides
 export const DEFAULT_DIE_PHYSICS: DiePhysicsConfig = {
 	collider: "hull",
 	restitution: 0.3,
@@ -41,7 +46,9 @@ export const DIE_PHYSICS_OVERRIDES: Record<DieType, Partial<DiePhysicsConfig>> =
 	d12: {},
 	d20: {},
 };
+// #endregion
 
+// #region Launch Tuning
 export const DIE_LAUNCH_CONFIG = {
 	launchDelayMs: 50,
 	throwImpulseMultiplier: 120,
@@ -53,8 +60,11 @@ export const DIE_LAUNCH_CONFIG = {
 	throwAngleRandomSpreadDeg: 70,
 	throwStrengthMinScale: 0.7,
 } as const;
+// #endregion
 
+// #region Resolver
 export const getDiePhysics = (dieType: DieType): DiePhysicsConfig => ({
 	...DEFAULT_DIE_PHYSICS,
 	...(DIE_PHYSICS_OVERRIDES[dieType] ?? {}),
 });
+// #endregion

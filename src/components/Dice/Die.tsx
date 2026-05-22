@@ -1,3 +1,4 @@
+// #region Imports
 import { useGLTF } from "@react-three/drei";
 import { RapierRigidBody, RigidBody } from "@react-three/rapier";
 import { useEffect, useMemo, useRef } from "react";
@@ -6,7 +7,9 @@ import { type SpawnPoint } from "./spawnPlanning";
 import { DIE_LAUNCH_CONFIG, getDiePhysics } from "../../config/dicePhysics";
 import { useDiceStore } from "../../store/useDiceStore";
 import type { DieType } from "../../store/useDiceStore";
+// #endregion
 
+// #region Constants And Props
 const DIE_TYPES: DieType[] = ["d4", "d6", "d8", "d10", "d12", "d20"];
 
 const getModelPath = (dieType: DieType) =>
@@ -20,13 +23,16 @@ type DieProps = {
 };
 
 const DEFAULT_POSITION: SpawnPoint = { x: 0, z: 0 };
+// #endregion
 
+// #region Component
 export const Die = ({
   dieType,
   rollId,
   throwStartPosition,
   skipSnapPosition,
 }: DieProps) => {
+  // References track the active rigid body and whether this die already launched for a roll id.
   const rigidBodyRef = useRef<RapierRigidBody>(null);
   const launchedForRollRef = useRef<number | null>(null);
   const triggerRoll = useDiceStore((state) => state.triggerRoll);
@@ -46,6 +52,7 @@ export const Die = ({
   const dieMaterial = materials.DieMat ?? null;
   const initialThrowStart = throwStartPosition ?? DEFAULT_POSITION;
 
+  // Locator nodes named value_<n> are used to resolve rolled face values.
   const locators = useMemo(() => {
     return Object.values(nodes).filter(
       (node): node is THREE.Object3D =>
@@ -53,6 +60,7 @@ export const Die = ({
     );
   }, [nodes]);
 
+  // Validate GLB contract once model data is available to surface authoring mismatches early.
   useEffect(() => {
     const missing: string[] = [];
     if (!dieMesh) {
@@ -89,6 +97,7 @@ export const Die = ({
     setGlbContractIssue,
   ]);
 
+  // Trigger throw/snap behavior when the global roll id advances to this die's roll.
   useEffect(() => {
     if (
       triggerRoll <= 0 ||
@@ -222,6 +231,7 @@ export const Die = ({
     triggerRoll,
   ]);
 
+  // On physics sleep, pick the locator with highest world-space Y to determine the up-facing value.
   const handleSleep = () => {
     if (!rigidBodyRef.current || skipAnimation || locators.length === 0) return;
     if (launchedForRollRef.current !== rollId) return;
@@ -277,6 +287,7 @@ export const Die = ({
     </RigidBody>
   );
 };
+// #endregion
 
 DIE_TYPES.forEach((type) => {
   useGLTF.preload(getModelPath(type));

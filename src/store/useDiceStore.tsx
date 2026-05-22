@@ -1,12 +1,17 @@
+// #region Imports
 import { create } from "zustand";
+// #endregion
 
+// #region Dice Domain Types And Constants
 export type DieType = "d4" | "d6" | "d8" | "d10" | "d12" | "d20";
 
 export const DIE_TYPES: DieType[] = ["d4", "d6", "d8", "d10", "d12", "d20"];
 export const MAX_DICE_PER_TYPE = 10;
 
 export type DiceCountMap = Record<DieType, number>;
+// #endregion
 
+// #region Pure Helpers
 const clampDieCount = (value: number) =>
   Math.max(0, Math.min(MAX_DICE_PER_TYPE, Math.floor(value)));
 
@@ -46,7 +51,9 @@ const buildDiceInstances = (counts: DiceCountMap, rollId: number): RollDieInstan
 
   return dice;
 };
+// #endregion
 
+// #region Roll State Types
 export type RollResult = {
   dieType: DieType;
   value: number;
@@ -65,7 +72,9 @@ export type RollBatchHistory = {
   total: number;
   results: RollResult[];
 };
+// #endregion
 
+// #region Store Contract
 interface DiceState {
   rollHistory: RollBatchHistory[];
   selectedDiceCounts: DiceCountMap;
@@ -84,7 +93,9 @@ interface DiceState {
   setGlbContractIssue: (issue: string | null) => void;
   setSkipAnimation: (skip: boolean) => void;
 }
+// #endregion
 
+// #region Store Implementation
 export const useDiceStore = create<DiceState>((set) => ({
   rollHistory: [],
   selectedDiceCounts: {
@@ -198,3 +209,4 @@ export const useDiceStore = create<DiceState>((set) => ({
     set({ skipAnimation: skip });
   },
 }));
+// #endregion

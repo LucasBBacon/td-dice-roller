@@ -1,3 +1,4 @@
+// #region Imports
 import { OrbitControls, OrthographicCamera } from "@react-three/drei";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
@@ -7,7 +8,9 @@ import { Boundaries } from "./Boundaries";
 import { Die } from "../Dice/Die";
 import { SCENE_CONFIG } from "../../config/scenePhysics";
 import { useDiceStore } from "../../store/useDiceStore";
+// #endregion
 
+// #region Dice Layer
 const DiceRollLayer = () => {
   const activeDice = useDiceStore((state) => state.activeDice);
   const { viewport } = useThree();
@@ -31,11 +34,14 @@ const DiceRollLayer = () => {
     </>
   );
 };
+// #endregion
 
+// #region Scene Root
 export const DiceScene = () => {
   const showPhysicsDebug =
     import.meta.env.DEV && import.meta.env.VITE_RAPIER_DEBUG === "true";
   const { camera, lighting, physics } = SCENE_CONFIG;
+  const gravity: [number, number, number] = [...physics.gravity];
 
   return (
     <Canvas style={{ position: "absolute", top: 0, left: 0, zIndex: 1 }}>
@@ -52,7 +58,7 @@ export const DiceScene = () => {
         castShadow
       />
 
-      <Physics gravity={physics.gravity} debug={showPhysicsDebug}>
+      <Physics gravity={gravity} debug={showPhysicsDebug}>
         <Boundaries />
         <DiceRollLayer />
       </Physics>
@@ -61,3 +67,4 @@ export const DiceScene = () => {
     </Canvas>
   );
 };
+// #endregion

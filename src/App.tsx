@@ -1,7 +1,10 @@
+// #region Imports
 import './App.css'
 import { DiceScene } from './components/Scene/DiceScene'
 import { Overlay } from './components/UI/Overlay'
+// #endregion
 
+// #region App Shell
 function App() {
 
   return (
@@ -11,5 +14,6 @@ function App() {
     </ div>
   )
 }
+// #endregion
 
 export default App

@@ -1,7 +1,10 @@
+// #region Imports
 import { useThree } from "@react-three/fiber";
 import { CuboidCollider, RigidBody } from "@react-three/rapier";
 import { SCENE_CONFIG } from "../../config/scenePhysics";
+// #endregion
 
+// #region Physics Boundaries
 export const Boundaries = () => {
   const { viewport } = useThree();
   const { boundaries } = SCENE_CONFIG;
@@ -9,7 +12,7 @@ export const Boundaries = () => {
 
   return (
     <>
-      {/* floor */}
+      {/* Floor collider keeps dice in frame while remaining visually invisible. */}
       <RigidBody
         type="fixed"
         position={[0, boundaries.floorY, 0]}
@@ -31,7 +34,7 @@ export const Boundaries = () => {
         />
       </RigidBody>
 
-      {/* Walls */}
+      {/* Four fixed wall colliders form the play box perimeter. */}
       <RigidBody
         type="fixed"
         position={[0, boundaries.wallY, -viewport.height / 2 - wallThickness / 2]}
@@ -95,3 +98,4 @@ export const Boundaries = () => {
     </>
   );
 };
+// #endregion

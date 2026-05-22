@@ -1,3 +1,4 @@
+// #region Spawn Planning Configuration
 export const SPAWN_PLANNING = {
   dieSizeUnits: 1,
   spacingPaddingUnits: 0,
@@ -8,3 +9,4 @@ export const SPAWN_PLANNING = {
   throwPositionAttempts: 8,
   skipMargin: 1.2,
 } as const;
+// #endregion

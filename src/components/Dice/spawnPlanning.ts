@@ -1,5 +1,8 @@
+// #region Imports
 import { SPAWN_PLANNING } from "../../config/spawnPlanning";
+// #endregion
 
+// #region Public Types
 export type SpawnPoint = {
   x: number;
   z: number;
@@ -9,12 +12,16 @@ export type SpawnPlan = {
   throwPositions: SpawnPoint[];
   skipPositions: SpawnPoint[];
 };
+// #endregion
 
+// #region Constants
 const DIE_SIZE_UNITS = SPAWN_PLANNING.dieSizeUnits;
 const SPACING_PADDING_UNITS = SPAWN_PLANNING.spacingPaddingUnits;
 const MIN_CENTER_DISTANCE = DIE_SIZE_UNITS + SPACING_PADDING_UNITS;
 const MAX_RANDOM_ATTEMPTS_PER_POINT = SPAWN_PLANNING.maxRandomAttemptsPerPoint;
+// #endregion
 
+// #region Shared Geometry Helpers
 const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
 
 const hasOverlap = (candidate: SpawnPoint, existing: SpawnPoint[], minDistance: number) => {
@@ -26,6 +33,10 @@ const hasOverlap = (candidate: SpawnPoint, existing: SpawnPoint[], minDistance: 
     return dx * dx + dz * dz < minDistanceSquared;
   });
 };
+
+// #endregion
+
+// #region Skip Layout Planning
 
 const createGridFallbackPoints = (
   count: number,
@@ -130,7 +141,9 @@ const createNonOverlappingPoints = (
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+// #endregion
 
+// #region Throw Layout Planning
 const createBottomRightThrowPoints = (
   count: number,
   viewportWidth: number,
@@ -184,7 +197,9 @@ const createBottomRightThrowPoints = (
 
   return points;
 };
+// #endregion
 
+// #region Public Planner
 export const buildSpawnPlan = (
   diceCount: number,
   viewportWidth: number,
@@ -212,3 +227,4 @@ export const buildSpawnPlan = (
     skipPositions,
   };
 };
+// #endregion

@@ -1,10 +1,13 @@
+// #region Imports
 import "./Overlay.css";
 import {
   DIE_TYPES,
   MAX_DICE_PER_TYPE,
   useDiceStore,
 } from "../../store/useDiceStore";
+// #endregion
 
+// #region Derived UI Helpers
 const totalSelectedDice = (counts: Record<(typeof DIE_TYPES)[number], number>) =>
   DIE_TYPES.reduce((total, dieType) => total + counts[dieType], 0);
 
@@ -14,7 +17,9 @@ const selectionLabel = (counts: Record<(typeof DIE_TYPES)[number], number>) => {
   );
   return parts.length > 0 ? parts.join(" + ") : "0d";
 };
+// #endregion
 
+// #region Component
 export const Overlay = () => {
   const {
     rollDice,
@@ -102,3 +107,4 @@ export const Overlay = () => {
     </div>
   );
 };
+// #endregion

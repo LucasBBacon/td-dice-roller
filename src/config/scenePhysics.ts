@@ -1,3 +1,4 @@
+// #region Scene Configuration
 export const SCENE_CONFIG = {
   camera: {
     position: [0, 10, 0] as const,
@@ -24,3 +25,4 @@ export const SCENE_CONFIG = {
     wallFriction: 0.95,
   },
 } as const;
+// #endregion
