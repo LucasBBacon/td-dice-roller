@@ -1,3 +1,5 @@
+import { SPAWN_PLANNING } from "../../config/spawnPlanning";
+
 export type SpawnPoint = {
   x: number;
   z: number;
@@ -8,10 +10,10 @@ export type SpawnPlan = {
   skipPositions: SpawnPoint[];
 };
 
-const DIE_SIZE_UNITS = 1;
-const SPACING_PADDING_UNITS = 0;
+const DIE_SIZE_UNITS = SPAWN_PLANNING.dieSizeUnits;
+const SPACING_PADDING_UNITS = SPAWN_PLANNING.spacingPaddingUnits;
 const MIN_CENTER_DISTANCE = DIE_SIZE_UNITS + SPACING_PADDING_UNITS;
-const MAX_RANDOM_ATTEMPTS_PER_POINT = 48;
+const MAX_RANDOM_ATTEMPTS_PER_POINT = SPAWN_PLANNING.maxRandomAttemptsPerPoint;
 
 const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
 
@@ -139,15 +141,15 @@ const createBottomRightThrowPoints = (
     return [];
   }
 
-  const edgeInset = 1.6;
+  const edgeInset = SPAWN_PLANNING.throwEdgeInset;
   const maxX = viewportWidth / 2 - edgeInset;
   const maxZ = viewportHeight / 2 - edgeInset;
   const minX = -viewportWidth / 2 + edgeInset;
   const minZ = -viewportHeight / 2 + edgeInset;
 
-  const spacing = minDistance * 1.1;
+  const spacing = minDistance * SPAWN_PLANNING.throwSpacingMultiplier;
   const columns = Math.max(1, Math.ceil(Math.sqrt(count)));
-  const jitter = minDistance * 0.15;
+  const jitter = minDistance * SPAWN_PLANNING.throwJitterMultiplier;
 
   const points: SpawnPoint[] = [];
 
@@ -159,7 +161,7 @@ const createBottomRightThrowPoints = (
 
     let placed = false;
 
-    for (let attempt = 0; attempt < 8; attempt += 1) {
+    for (let attempt = 0; attempt < SPAWN_PLANNING.throwPositionAttempts; attempt += 1) {
       const candidate = {
         x: clamp(baseX + randomInRange(-jitter, jitter), minX, maxX),
         z: clamp(baseZ + randomInRange(-jitter, jitter), minZ, maxZ),
@@ -188,7 +190,7 @@ export const buildSpawnPlan = (
   viewportWidth: number,
   viewportHeight: number,
 ): SpawnPlan => {
-  const skipMargin = 1.2;
+  const skipMargin = SPAWN_PLANNING.skipMargin;
 
   const throwPositions = createBottomRightThrowPoints(
     diceCount,

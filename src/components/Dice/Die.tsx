@@ -3,50 +3,9 @@ import { RapierRigidBody, RigidBody } from "@react-three/rapier";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { type SpawnPoint } from "./spawnPlanning";
+import { DIE_LAUNCH_CONFIG, getDiePhysics } from "../../config/dicePhysics";
 import { useDiceStore } from "../../store/useDiceStore";
 import type { DieType } from "../../store/useDiceStore";
-
-type DiePhysicsConfig = {
-  collider: "cuboid" | "hull";
-  restitution: number;
-  friction: number;
-  linearDamping: number;
-  angularDamping: number;
-  skipSnapPadding: number;
-  skipSnapY: number;
-  skipResultDelayMs: number;
-  throwVerticalMax: number;
-};
-
-const DEFAULT_PHYSICS: DiePhysicsConfig = {
-  collider: "hull",
-  restitution: 0.3,
-  friction: 0.9,
-  linearDamping: 1.5,
-  angularDamping: 2.8,
-  skipSnapPadding: 1.5,
-  skipSnapY: 0,
-  skipResultDelayMs: 50,
-  throwVerticalMax: 3,
-};
-
-const DIE_PHYSICS_OVERRIDES: Record<DieType, Partial<DiePhysicsConfig>> = {
-  d4: {},
-  d6: {
-    collider: "cuboid",
-    restitution: 0.25,
-    linearDamping: 1.4,
-    angularDamping: 2.6,
-    skipSnapPadding: 1,
-    skipSnapY: 0.5,
-    skipResultDelayMs: 100,
-    throwVerticalMax: 2.2,
-  },
-  d8: {},
-  d10: {},
-  d12: {},
-  d20: {},
-};
 
 const DIE_TYPES: DieType[] = ["d4", "d6", "d8", "d10", "d12", "d20"];
 
@@ -81,10 +40,7 @@ export const Die = ({
   const modelPath = getModelPath(dieType);
   const { nodes, materials } = useGLTF(modelPath);
 
-  const physics = {
-    ...DEFAULT_PHYSICS,
-    ...(DIE_PHYSICS_OVERRIDES[dieType] ?? {}),
-  };
+  const physics = getDiePhysics(dieType);
 
   const dieMesh = (nodes.DieMesh as THREE.Mesh | undefined) ?? null;
   const dieMaterial = materials.DieMat ?? null;
@@ -194,12 +150,6 @@ export const Die = ({
 
       rb.wakeUp();
 
-      const throwImpulseMultiplier = 120;
-      const torqueImpulseMultiplier = 42;
-      const minLaunchSpeed = 18;
-      const maxLaunchSpeed = 26;
-      const minLaunchVerticalSpeed = 6;
-      const maxLaunchVerticalSpeed = 10;
       const inwardDirection = new THREE.Vector2(-throwStart.x, -throwStart.z);
       const baseAngle =
         inwardDirection.lengthSq() > 0.0001
@@ -207,10 +157,13 @@ export const Die = ({
           : THREE.MathUtils.randFloat(0, Math.PI * 2);
       const throwAngleRad =
         baseAngle +
-        THREE.MathUtils.randFloatSpread(THREE.MathUtils.degToRad(70));
+        THREE.MathUtils.randFloatSpread(
+          THREE.MathUtils.degToRad(DIE_LAUNCH_CONFIG.throwAngleRandomSpreadDeg),
+        );
       const throwStrength = THREE.MathUtils.randFloat(
-        throwImpulseMultiplier * 0.7,
-        throwImpulseMultiplier,
+        DIE_LAUNCH_CONFIG.throwImpulseMultiplier *
+          DIE_LAUNCH_CONFIG.throwStrengthMinScale,
+        DIE_LAUNCH_CONFIG.throwImpulseMultiplier,
       );
 
       const launchDirection = {
@@ -218,12 +171,12 @@ export const Die = ({
         z: Math.sin(throwAngleRad),
       };
       const launchSpeed = THREE.MathUtils.randFloat(
-        minLaunchSpeed,
-        maxLaunchSpeed,
+        DIE_LAUNCH_CONFIG.minLaunchSpeed,
+        DIE_LAUNCH_CONFIG.maxLaunchSpeed,
       );
       const verticalLaunchSpeed = THREE.MathUtils.randFloat(
-        minLaunchVerticalSpeed,
-        maxLaunchVerticalSpeed,
+        DIE_LAUNCH_CONFIG.minLaunchVerticalSpeed,
+        DIE_LAUNCH_CONFIG.maxLaunchVerticalSpeed,
       );
 
       rb.setLinvel(
@@ -241,14 +194,14 @@ export const Die = ({
         z: launchDirection.z * throwStrength,
       };
       const torqueImpulse = {
-        x: (Math.random() - 0.5) * torqueImpulseMultiplier,
-        y: (Math.random() - 0.5) * torqueImpulseMultiplier,
-        z: (Math.random() - 0.5) * torqueImpulseMultiplier,
+        x: (Math.random() - 0.5) * DIE_LAUNCH_CONFIG.torqueImpulseMultiplier,
+        y: (Math.random() - 0.5) * DIE_LAUNCH_CONFIG.torqueImpulseMultiplier,
+        z: (Math.random() - 0.5) * DIE_LAUNCH_CONFIG.torqueImpulseMultiplier,
       };
 
       rb.applyImpulse(throwImpulse, true);
       rb.applyTorqueImpulse(torqueImpulse, true);
-    }, 50);
+    }, DIE_LAUNCH_CONFIG.launchDelayMs);
 
     return () => {
       cancelled = true;
