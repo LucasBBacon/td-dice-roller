@@ -1,75 +1,164 @@
 .ui-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 2rem;
-    box-sizing: border-box;
     z-index: 10;
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
 }
 
-.controls {
+.dice-tray-wrapper {
     pointer-events: auto;
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 1rem;
+    align-items: stretch;
+    gap: 16px;
+    max-width: calc(100vw - 48px);
 }
 
-button {
-    padding: 0.75rem 1.5rem;
-    font-size: 1rem;
-    cursor: pointer;
-    background: #2a2a2a;
-    color: white;
-    border: 2px solid #444;
-    border-radius: 8px;
-}
-
-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-}
-
-.dice-count-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(64px, auto));
-    gap: 0.5rem 0.75rem;
-    background: rgba(0, 0, 0, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    padding: 0.5rem 0.75rem;
-}
-
-.dice-count-label {
+.drawer-expanded {
     display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    color: white;
-    font-size: 0.85rem;
+    background: #2a2a2b;
+    border-radius: 12px;
+    box-shadow: inset 8px 0 12px rgba(0, 0, 0, 0.4), 0 8px 16x rgba(0, 0, 0, 0.3);
+    padding: 8px;
+    overflow: hidden;
+    animation: slideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.dice-count-label input {
-    width: 64px;
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.drawer-close-btn {
+    background: #3f3f46;
+    border: none;
+    color: #a1a1aa;
+    padding: 0 12px;
     border-radius: 6px;
-    border: 1px solid #666;
-    background: #161616;
-    color: white;
-    padding: 0.2rem 0.4rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s;
+    flex-shrink: 0;
 }
 
-.history {
-    pointer-events: auto;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 1rem;
-    border-radius: 8px;
-    max-width: 200px;
-    max-height: 50vh;
+.drawer-close-btn:hover {
+    background: #52525b;
+    color: #fff;
+}
+
+.drawer-dice-scroll {
+    display: flex;
+    gap: 12px;
+    padding: 4px 12px;
     overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.drawer-dice-scroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Opera */
+}
+
+.die-btn-wrapper {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #a1a1aa;
+    transition: transform 0.1s, color 0.2s;
+}
+
+
+.die-btn-wrapper:hover {
+    color: #fff;
+    transform: translateY(-2px);
+}
+
+.die-btn-wrapper:active {
+    transform: translateY(1px) scale(0.95);
+}
+
+.die-label {
+    position: relative;
+    z-index: 12;
+    font-weight: 700;
+    font-size: 1.1rem;
+    pointer-events: none;
+}
+
+.die-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    z-index: 13;
+    background: #ef4444;
+    color: white;
+    border: 2px solid #2a2a2b;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.2s;
+    overflow: hidden;
+}
+
+.die-badge .badge-minus {
+    display: none;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.die-badge:hover {
+    background: #dc2626;
+}
+
+.die-badge:hover .badge-count {
+    display: none;
+}
+
+.die-badge:hover .badge-minus {
+    display: block;
+}
+
+.tray-toggle-btn, .roll-btn {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 0 24px;
+    height: 80px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 1.1rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    transition: transform 0.1s, background 0.2s;
+    white-space: no-wrap;
+}
+
+.tray-toggle-btn:hover, .roll-btn:not(:disabled):hover {
+    background: #2563eb;
+    transform: translateY(-2px);
+}
+
+.roll-btn:disabled {
+    background: #3f3f46;
+    color: #71717a;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
 }
