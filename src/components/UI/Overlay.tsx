@@ -7,6 +7,7 @@ import {
 } from "../../store/useDiceStore";
 import { useState } from "react";
 import { DieSilhouette } from "./DieSilhouette";
+import { RollHistoryLog } from "./RollHistoryLog";
 // #endregion
 
 // #region Derived UI Helpers
@@ -26,12 +27,8 @@ const selectionLabel = (counts: Record<(typeof DIE_TYPES)[number], number>) => {
 export const Overlay = () => {
   const {
     rollDice,
-    rollHistory,
     selectedDiceCounts,
     setDieCount,
-    glbContractIssue,
-    skipAnimation,
-    setSkipAnimation,
     isRolling,
   } = useDiceStore();
 
@@ -115,23 +112,28 @@ export const Overlay = () => {
           </div>
         ) : null}
 
-        {/* Action Button */}
-        {!isTrayExpanded ? (
-          <button
-            className="tray-toggle-btn"
-            onClick={() => setIsTrayExpanded(true)}
-          >
-            Open Dice Tray
-          </button>
-        ) : (
-          <button
-            className="roll-btn"
-            onClick={rollDice}
-            disabled={isRolling || diceCount === 0}
-          >
-            {isRolling ? "Rolling..." : `Roll ${label}`}
-          </button>
-        )}
+        <div className="action-stack">
+          <RollHistoryLog />
+
+          {/* Action Button */}
+          {!isTrayExpanded ? (
+            <button
+              className="tray-toggle-btn"
+              onClick={() => setIsTrayExpanded(true)}
+            >
+              Dice
+            </button>
+          ) : (
+            <button
+              className="roll-btn"
+              onClick={rollDice}
+              disabled={isRolling || diceCount === 0}
+              title={isRolling ? "Rolling..." : `Roll ${label}`}
+            >
+              {isRolling ? "Rolling..." : `Roll`}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

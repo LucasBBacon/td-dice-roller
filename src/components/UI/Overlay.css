@@ -12,9 +12,21 @@
     bottom: 24px;
     right: 24px;
     display: flex;
-    align-items: stretch;
+    align-items: flex-end;
     gap: 16px;
     max-width: calc(100vw - 48px);
+}
+
+.action-stack {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+}
+
+.action-stack .roll-history-log {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 10px);
 }
 
 .drawer-expanded {
@@ -147,7 +159,15 @@
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
     transition: transform 0.1s, background 0.2s;
-    white-space: no-wrap;
+    white-space: nowrap;
+}
+
+.tray-toggle-btn,
+.roll-btn {
+    width: 180px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .tray-toggle-btn:hover, .roll-btn:not(:disabled):hover {
