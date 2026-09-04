@@ -13,6 +13,9 @@ export type DiePhysicsConfig = {
 	skipSnapY: number;
 	skipResultDelayMs: number;
 	throwVerticalMax: number;
+	throwImpulseScale: number;
+	torqueImpulseScale: number;
+	launchSpeedScale: number;
 };
 // #endregion
 
@@ -27,10 +30,21 @@ export const DEFAULT_DIE_PHYSICS: DiePhysicsConfig = {
 	skipSnapY: 0,
 	skipResultDelayMs: 50,
 	throwVerticalMax: 3,
+	throwImpulseScale: 1,
+	torqueImpulseScale: 1,
+	launchSpeedScale: 1,
 };
 
 export const DIE_PHYSICS_OVERRIDES: Record<DieType, Partial<DiePhysicsConfig>> = {
-	d4: {},
+	d4: {
+		throwImpulseScale: 0.4,
+		torqueImpulseScale: 0.6,
+		launchSpeedScale: 0.7,
+		throwVerticalMax: 1.5,
+		restitution: 0.2,
+		linearDamping: 2,
+		angularDamping: 3.2,
+	},
 	d6: {
 		collider: "cuboid",
 		restitution: 0.25,
@@ -63,6 +77,12 @@ export const DIE_LAUNCH_CONFIG = {
 	maxLaunchVerticalSpeed: 10,
 	throwAngleRandomSpreadDeg: 70,
 	throwStrengthMinScale: 0.7,
+} as const;
+// #endregion
+
+// #region Appearance
+export const DIE_APPEARANCE = {
+	droppedOpacity: 0.28,
 } as const;
 // #endregion
 

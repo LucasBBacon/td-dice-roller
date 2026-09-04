@@ -42,6 +42,16 @@
     margin-top: 1px;
 }
 
+.roll-history-dropped {
+    opacity: 0.45;
+}
+
+.roll-history-modifier {
+    font-size: 0.9em;
+    letter-spacing: 0.04em;
+    opacity: 0.72;
+}
+
 @keyframes rollHistoryLineIn {
     from {
         transform: translateY(5px);

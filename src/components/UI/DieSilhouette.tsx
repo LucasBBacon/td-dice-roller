@@ -1,11 +1,11 @@
 import "./DieSilhouette.css";
 import type { JSX } from "react";
-import type { DIE_TYPES } from "../../store/useDiceStore";
+import type { DieType } from "../../roll/dieTypes";
 
 export const DieSilhouette = ({
   type,
 }: {
-  type: (typeof DIE_TYPES)[number];
+  type: DieType;
 }) => {
   const paths: Record<string, JSX.Element> = {
     d4: <polygon points="50,5 100,95 0,95" />,

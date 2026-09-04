@@ -1,33 +1,64 @@
 import "./RollHistoryLog.css";
-import type { CSSProperties } from "react";
-import { DIE_TYPES, type DieType, useDiceStore } from "../../store/useDiceStore";
+import type { CSSProperties, ReactNode } from "react";
+import { useDiceStore } from "../../store/useDiceStore";
+import type { NodeEval } from "../../roll/evaluator";
 
 const MAX_VISIBLE_LINES = 7;
 
-const formatBatchLine = (
-  results: Array<{ dieType: DieType; value: number }>,
-  total: number,
-) => {
-  const groupedValues = results.reduce<Record<DieType, number[]>>(
-    (acc, result) => {
-      acc[result.dieType].push(result.value);
-      return acc;
-    },
-    {
-      d4: [],
-      d6: [],
-      d8: [],
-      d10: [],
-      d12: [],
-      d20: [],
-    },
-  );
+const renderNodeEval = (node: NodeEval): ReactNode => {
+  switch (node.kind) {
+    case "pool":
+      return (
+        <span>
+          {node.dieType}[
+          {node.dice.map((outcome, index) => (
+            <span key={outcome.dieId}>
+              {index > 0 ? ", " : null}
+              {outcome.dropped ? (
+                <s className="roll-history-dropped">{outcome.value}</s>
+              ) : (
+                outcome.value
+              )}
+            </span>
+          ))}
+          ]
+        </span>
+      );
+    case "keepDrop":
+      return (
+        <span>
+          {renderNodeEval(node.child)}
+          <span className="roll-history-modifier">
+            {node.mode}
+            {node.n}
+          </span>
+        </span>
+      );
+    case "sum":
+      return (
+        <span>
+          {node.children.map((child, index) => (
+            <span key={child.nodeId}>
+              {index > 0 ? " + " : null}
+              {renderNodeEval(child)}
+            </span>
+          ))}
+        </span>
+      );
+  }
+};
 
-  const details = DIE_TYPES.filter((dieType) => groupedValues[dieType].length > 0)
-    .map((dieType) => `${dieType}[${groupedValues[dieType].join(",")}]`)
-    .join(" ");
-
-  return `${details} = ${total}`;
+const describeNodeEval = (node: NodeEval): string => {
+  switch (node.kind) {
+    case "pool":
+      return `${node.dieType}[${node.dice
+        .map((outcome) => (outcome.dropped ? `(${outcome.value})` : `${outcome.value}`))
+        .join(", ")}]`;
+    case "keepDrop":
+      return `${describeNodeEval(node.child)}${node.mode}${node.n}`;
+    case "sum":
+      return node.children.map(describeNodeEval).join(" + ");
+  }
 };
 
 export const RollHistoryLog = () => {
@@ -43,7 +74,6 @@ export const RollHistoryLog = () => {
   return (
     <ol className="roll-history-log" aria-live="polite" aria-label="Roll history">
       {visibleHistory.map((batch, index) => {
-        const line = formatBatchLine(batch.results, batch.total);
         const ageRatio = index / denominator;
         const opacity = 0.28 + Math.pow(ageRatio, 1.35) * 0.7;
         const metaOpacity = Math.max(0.22, opacity - 0.34);
@@ -58,9 +88,11 @@ export const RollHistoryLog = () => {
                 "--history-meta-opacity": metaOpacity.toFixed(2),
               } as CSSProperties
             }
-            title={line}
+            title={`${describeNodeEval(batch.evaluation)} = ${batch.total}`}
           >
-            <span className="roll-history-text">{line}</span>
+            <span className="roll-history-text">
+              {renderNodeEval(batch.evaluation)} = {batch.total}
+            </span>
             <span className="roll-history-meta">#{batch.rollId}</span>
           </li>
         );

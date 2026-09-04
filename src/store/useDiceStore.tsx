@@ -1,76 +1,46 @@
 // #region Imports
 import { create } from "zustand";
+import type { RollNode } from "../roll/astTypes";
+import {
+  buildRollAst,
+  clampPoolCount,
+  DEFAULT_MECHANICS,
+  type MechanicMap,
+  type RollMechanic,
+} from "../roll/astBuilders";
+import {
+  collectDroppedDieIds,
+  evaluateRoll,
+  type NodeEval,
+} from "../roll/evaluator";
+import { formatAstNotation } from "../roll/notation";
+import { planRoll, type PlannedDie } from "../roll/planner";
+import type { DiceCountMap, DieType } from "../roll/dieTypes";
 // #endregion
 
-// #region Dice Domain Types And Constants
-export type DieType = "d4" | "d6" | "d8" | "d10" | "d12" | "d20";
-
-export const DIE_TYPES: DieType[] = ["d4", "d6", "d8", "d10", "d12", "d20"];
-export const MAX_DICE_PER_TYPE = 10;
-
-export type DiceCountMap = Record<DieType, number>;
+// #region Dice Domain Re-exports
+export type { DiceCountMap, DieType };
 // #endregion
 
 // #region Pure Helpers
-const clampDieCount = (value: number) =>
-  Math.max(0, Math.min(MAX_DICE_PER_TYPE, Math.floor(value)));
-
 const normalizeDiceCounts = (counts: DiceCountMap): DiceCountMap => ({
-  d4: clampDieCount(counts.d4),
-  d6: clampDieCount(counts.d6),
-  d8: clampDieCount(counts.d8),
-  d10: clampDieCount(counts.d10),
-  d12: clampDieCount(counts.d12),
-  d20: clampDieCount(counts.d20),
+  d4: clampPoolCount(counts.d4),
+  d6: clampPoolCount(counts.d6),
+  d8: clampPoolCount(counts.d8),
+  d10: clampPoolCount(counts.d10),
+  d12: clampPoolCount(counts.d12),
+  d20: clampPoolCount(counts.d20),
 });
-
-const totalDiceCount = (counts: DiceCountMap) =>
-  DIE_TYPES.reduce((acc, dieType) => acc + counts[dieType], 0);
-
-const formatDiceNotation = (counts: DiceCountMap) => {
-  const parts = DIE_TYPES.filter((dieType) => counts[dieType] > 0).map(
-    (dieType) => `${counts[dieType]}${dieType}`,
-  );
-
-  return parts.length > 0 ? parts.join(" + ") : "0d";
-};
-
-const buildDiceInstances = (counts: DiceCountMap, rollId: number): RollDieInstance[] => {
-  const dice: RollDieInstance[] = [];
-
-  DIE_TYPES.forEach((dieType) => {
-    for (let index = 0; index < counts[dieType]; index += 1) {
-      dice.push({
-        id: `${rollId}-${dieType}-${index}`,
-        dieType,
-        index,
-        rollId,
-      });
-    }
-  });
-
-  return dice;
-};
 // #endregion
 
 // #region Roll State Types
-export type RollResult = {
-  dieType: DieType;
-  value: number;
-};
-
-export type RollDieInstance = {
-  id: string;
-  dieType: DieType;
-  index: number;
-  rollId: number;
-};
+export type RollDieInstance = PlannedDie;
 
 export type RollBatchHistory = {
   rollId: number;
   notation: string;
   total: number;
-  results: RollResult[];
+  evaluation: NodeEval;
 };
 
 export type RollPhase = "idle" | "spawning" | "rolling";
@@ -80,8 +50,11 @@ export type RollPhase = "idle" | "spawning" | "rolling";
 interface DiceState {
   rollHistory: RollBatchHistory[];
   selectedDiceCounts: DiceCountMap;
+  dieMechanics: MechanicMap;
+  rollAst: RollNode | null;
   activeDice: RollDieInstance[];
   previousSceneDiceSnapshot: RollDieInstance[];
+  droppedDieIds: string[];
   glbContractIssue: string | null;
   isRolling: boolean;
   rollPhase: RollPhase;
@@ -94,10 +67,11 @@ interface DiceState {
   readyRetryCount: number;
   readyDieIds: string[];
   resolvedDiceCount: number;
-  currentRollResults: RollResult[];
-  addRollResult: (rollId: number, result: RollResult) => void;
+  currentRollValues: Record<string, number>;
+  addRollResult: (rollId: number, dieId: string, value: number) => void;
   rollDice: () => void;
   setDieCount: (dieType: DieType, count: number) => void;
+  setDieMechanic: (dieType: DieType, mechanic: RollMechanic) => void;
   registerDieReady: (rollId: number, dieId: string) => void;
   retrySpawnReadiness: (rollId: number) => void;
   beginRollLaunch: (rollId: number) => void;
@@ -118,8 +92,11 @@ export const useDiceStore = create<DiceState>((set) => ({
     d12: 0,
     d20: 0,
   },
+  dieMechanics: DEFAULT_MECHANICS,
   activeDice: [],
   previousSceneDiceSnapshot: [],
+  rollAst: null,
+  droppedDieIds: [],
   glbContractIssue: null,
   isRolling: false,
   rollPhase: "idle",
@@ -132,49 +109,40 @@ export const useDiceStore = create<DiceState>((set) => ({
   readyRetryCount: 0,
   readyDieIds: [],
   resolvedDiceCount: 0,
-  currentRollResults: [],
-  addRollResult: (rollId, result) => {
+  currentRollValues: {},
+  addRollResult: (rollId, dieId, value) => {
     set((state) => {
-      if (!state.isRolling || state.activeRollId !== rollId) {
+      if (
+        !state.isRolling ||
+        state.activeRollId !== rollId ||
+        state.rollAst === null ||
+        dieId in state.currentRollValues
+      ) {
         return {};
       }
 
-      const nextResults = [...state.currentRollResults, result];
+      const nextValues = { ...state.currentRollValues, [dieId]: value };
       const nextResolvedCount = state.resolvedDiceCount + 1;
 
       if (nextResolvedCount < state.expectedDiceCount) {
         return {
-          currentRollResults: nextResults,
+          currentRollValues: nextValues,
           resolvedDiceCount: nextResolvedCount,
         };
       }
 
-      const resultCounts = nextResults.reduce<DiceCountMap>(
-        (acc, roll) => {
-          acc[roll.dieType] += 1;
-          return acc;
-        },
-        {
-          d4: 0,
-          d6: 0,
-          d8: 0,
-          d10: 0,
-          d12: 0,
-          d20: 0,
-        },
-      );
-
-      const total = nextResults.reduce((acc, roll) => acc + roll.value, 0);
+      const evaluation = evaluateRoll(state.rollAst, state.activeDice, nextValues);
       const completedBatch: RollBatchHistory = {
         rollId,
-        notation: formatDiceNotation(resultCounts),
-        total,
-        results: nextResults,
+        notation: formatAstNotation(state.rollAst),
+        total: evaluation.total,
+        evaluation,
       };
 
       return {
         rollHistory: [completedBatch, ...state.rollHistory],
-        currentRollResults: [],
+        droppedDieIds: collectDroppedDieIds(evaluation),
+        currentRollValues: {},
         resolvedDiceCount: 0,
         expectedDiceCount: 0,
         readyDiceCount: 0,
@@ -187,33 +155,40 @@ export const useDiceStore = create<DiceState>((set) => ({
     });
   },
   rollDice: () => {
-    set((state) => ({
-      ...(totalDiceCount(state.selectedDiceCounts) === 0 || state.isRolling
-        ? {}
-        : (() => {
-            const normalizedCounts = normalizeDiceCounts(state.selectedDiceCounts);
-            const nextTriggerRoll = state.triggerRoll + 1;
-            const nextRollId = nextTriggerRoll;
-            const nextActiveDice = buildDiceInstances(normalizedCounts, nextRollId);
+    set((state) => {
+      if (state.isRolling) {
+        return {};
+      }
 
-            return {
-              selectedDiceCounts: normalizedCounts,
-              triggerRoll: nextTriggerRoll,
-              triggerLaunch: state.triggerLaunch,
-              activeRollId: nextRollId,
-              activeDice: nextActiveDice,
-              previousSceneDiceSnapshot: state.activeDice,
-              expectedDiceCount: totalDiceCount(normalizedCounts),
-              readyDiceCount: 0,
-              readyRetryCount: 0,
-              readyDieIds: [],
-              resolvedDiceCount: 0,
-              currentRollResults: [],
-              rollPhase: "spawning",
-              isRolling: true,
-            };
-          })()),
-    }));
+      const normalizedCounts = normalizeDiceCounts(state.selectedDiceCounts);
+      const rollAst = buildRollAst(normalizedCounts, state.dieMechanics);
+
+      if (rollAst === null) {
+        return {};
+      }
+
+      const nextTriggerRoll = state.triggerRoll + 1;
+      const nextRollId = nextTriggerRoll;
+      const nextActiveDice = planRoll(rollAst, nextRollId);
+
+      return {
+        selectedDiceCounts: normalizedCounts,
+        rollAst,
+        triggerRoll: nextTriggerRoll,
+        activeRollId: nextRollId,
+        activeDice: nextActiveDice,
+        previousSceneDiceSnapshot: state.activeDice,
+        droppedDieIds: [],
+        expectedDiceCount: nextActiveDice.length,
+        readyDiceCount: 0,
+        readyRetryCount: 0,
+        readyDieIds: [],
+        resolvedDiceCount: 0,
+        currentRollValues: {},
+        rollPhase: "spawning",
+        isRolling: true,
+      };
+    });
   },
   setDieCount: (dieType, count) => {
     set((state) => {
@@ -226,6 +201,14 @@ export const useDiceStore = create<DiceState>((set) => ({
         selectedDiceCounts: nextCounts,
       };
     });
+  },
+  setDieMechanic: (dieType, mechanic) => {
+    set((state) => ({
+      dieMechanics: {
+        ...state.dieMechanics,
+        [dieType]: mechanic,
+      },
+    }));
   },
   registerDieReady: (rollId, dieId) => {
     set((state) => {
@@ -291,7 +274,7 @@ export const useDiceStore = create<DiceState>((set) => ({
         previousSceneDiceSnapshot: [],
         expectedDiceCount: 0,
         resolvedDiceCount: 0,
-        currentRollResults: [],
+        currentRollValues: {},
         readyDiceCount: 0,
         readyRetryCount: 0,
         readyDieIds: [],

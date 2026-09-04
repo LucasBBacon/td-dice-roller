@@ -4,7 +4,7 @@ import { RapierRigidBody, RigidBody } from "@react-three/rapier";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { type SpawnPoint } from "./spawnPlanning";
-import { DIE_LAUNCH_CONFIG, getDiePhysics } from "../../config/dicePhysics";
+import { DIE_APPEARANCE, DIE_LAUNCH_CONFIG, getDiePhysics } from "../../config/dicePhysics";
 import { useDiceStore } from "../../store/useDiceStore";
 import type { DieType } from "../../store/useDiceStore";
 // #endregion
@@ -46,6 +46,7 @@ export const Die = ({
   const skipAnimation = useDiceStore((state) => state.skipAnimation);
   const addRollResult = useDiceStore((state) => state.addRollResult);
   const registerDieReady = useDiceStore((state) => state.registerDieReady);
+  const isDropped = useDiceStore((state) => state.droppedDieIds.includes(dieId));
   const setGlbContractIssue = useDiceStore(
     (state) => state.setGlbContractIssue,
   );
@@ -58,6 +59,19 @@ export const Die = ({
   const dieMesh = (nodes.DieMesh as THREE.Mesh | undefined) ?? null;
   const dieMaterial = materials.DieMat ?? null;
   const initialThrowStart = throwStartPosition ?? DEFAULT_POSITION;
+
+  // Cloned so dimming a dropped die does not affect other dice sharing the GLTF material.
+  const droppedMaterial = useMemo(() => {
+    if (!dieMaterial) {
+      return null;
+    }
+
+    const material = dieMaterial.clone();
+    material.transparent = true;
+    material.opacity = DIE_APPEARANCE.droppedOpacity;
+
+    return material;
+  }, [dieMaterial]);
 
   // Locator nodes named value_<n> are used to resolve rolled face values.
   const locators = useMemo(() => {
@@ -176,7 +190,7 @@ export const Die = ({
 
         const rolledValue = parseInt(randomLocator.name.split("_")[1], 10);
         setTimeout(
-          () => addRollResult(rollId, { dieType, value: rolledValue }),
+          () => addRollResult(rollId, dieId, rolledValue),
           physics.skipResultDelayMs,
         );
         return;
@@ -198,20 +212,22 @@ export const Die = ({
         DIE_LAUNCH_CONFIG.throwImpulseMultiplier *
           DIE_LAUNCH_CONFIG.throwStrengthMinScale,
         DIE_LAUNCH_CONFIG.throwImpulseMultiplier,
-      );
+      ) * physics.throwImpulseScale;
 
       const launchDirection = {
         x: Math.cos(throwAngleRad),
         z: Math.sin(throwAngleRad),
       };
-      const launchSpeed = THREE.MathUtils.randFloat(
-        DIE_LAUNCH_CONFIG.minLaunchSpeed,
-        DIE_LAUNCH_CONFIG.maxLaunchSpeed,
-      );
-      const verticalLaunchSpeed = THREE.MathUtils.randFloat(
-        DIE_LAUNCH_CONFIG.minLaunchVerticalSpeed,
-        DIE_LAUNCH_CONFIG.maxLaunchVerticalSpeed,
-      );
+      const launchSpeed =
+        THREE.MathUtils.randFloat(
+          DIE_LAUNCH_CONFIG.minLaunchSpeed,
+          DIE_LAUNCH_CONFIG.maxLaunchSpeed,
+        ) * physics.launchSpeedScale;
+      const verticalLaunchSpeed =
+        THREE.MathUtils.randFloat(
+          DIE_LAUNCH_CONFIG.minLaunchVerticalSpeed,
+          DIE_LAUNCH_CONFIG.maxLaunchVerticalSpeed,
+        ) * physics.launchSpeedScale;
 
       rb.setLinvel(
         {
@@ -228,9 +244,18 @@ export const Die = ({
         z: launchDirection.z * throwStrength,
       };
       const torqueImpulse = {
-        x: (Math.random() - 0.5) * DIE_LAUNCH_CONFIG.torqueImpulseMultiplier,
-        y: (Math.random() - 0.5) * DIE_LAUNCH_CONFIG.torqueImpulseMultiplier,
-        z: (Math.random() - 0.5) * DIE_LAUNCH_CONFIG.torqueImpulseMultiplier,
+        x:
+          (Math.random() - 0.5) *
+          DIE_LAUNCH_CONFIG.torqueImpulseMultiplier *
+          physics.torqueImpulseScale,
+        y:
+          (Math.random() - 0.5) *
+          DIE_LAUNCH_CONFIG.torqueImpulseMultiplier *
+          physics.torqueImpulseScale,
+        z:
+          (Math.random() - 0.5) *
+          DIE_LAUNCH_CONFIG.torqueImpulseMultiplier *
+          physics.torqueImpulseScale,
       };
 
       rb.applyImpulse(throwImpulse, true);
@@ -244,6 +269,7 @@ export const Die = ({
   }, [
     addRollResult,
     activeRollId,
+    dieId,
     dieIndex,
     dieType,
     isRolling,
@@ -253,6 +279,9 @@ export const Die = ({
     physics.skipResultDelayMs,
     physics.skipSnapY,
     physics.throwVerticalMax,
+    physics.throwImpulseScale,
+    physics.launchSpeedScale,
+    physics.torqueImpulseScale,
     skipAnimation,
     skipSnapPosition,
     initialThrowStart,
@@ -287,7 +316,7 @@ export const Die = ({
       }
     });
 
-    addRollResult(rollId, { dieType, value: rolledValue });
+    addRollResult(rollId, dieId, rolledValue);
   };
 
   if (!dieMesh || !dieMaterial) {
@@ -310,7 +339,7 @@ export const Die = ({
         castShadow
         receiveShadow
         geometry={dieMesh.geometry}
-        material={dieMaterial}
+        material={isDropped && droppedMaterial ? droppedMaterial : dieMaterial}
       />
     </RigidBody>
   );
